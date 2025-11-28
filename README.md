@@ -6,7 +6,6 @@ A [Skip](https://skip.tools) interface for integrating PostHog analytics into yo
 
 [PostHog](https://posthog.com) is an open-source product analytics platform that helps you understand user behavior, track events, conduct A/B tests, and analyze feature usage. It provides powerful analytics capabilities including event tracking, user identification, feature flags, session recording, and more—all while giving you full control over your data.
 
-
 ## Setup
 
 To include this framework in your project, add the following
@@ -28,6 +27,10 @@ let package = Package(
     ]
 )
 ```
+
+## API Compatibility
+
+SkipPostHog provides the same API surface as the [PostHog iOS SDK](https://posthog.com/docs/libraries/ios), ensuring a familiar development experience. All methods behave identically on both iOS and Android platforms, allowing you to write once and deploy everywhere. On Android, the API calls are forwarded to their equivalents in the [PostHog Android SDK](https://posthog.com/docs/libraries/android).
 
 ## Configuration
 
@@ -189,10 +192,6 @@ Retrieve the current user's distinct ID:
 let distinctId = PostHogSDK.shared.getDistinctId()
 print("Current user ID: \(distinctId)")
 ```
-
-## API Compatibility
-
-SkipPostHog provides the same API surface as the PostHog iOS SDK, ensuring a familiar development experience. All methods behave identically on both iOS and Android platforms, allowing you to write once and deploy everywhere.
 
 ## Privacy Considerations
 
