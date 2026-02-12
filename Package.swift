@@ -1,5 +1,5 @@
 // swift-tools-version: 5.9
-// This is a Skip (https://skip.tools) package.
+// This is a Skip (https://skip.dev) package.
 import PackageDescription
 
 let package = Package(
@@ -7,7 +7,7 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "SkipPostHog", type: .dynamic, targets: ["SkipPostHog"]),
+        .library(name: "SkipPostHog", targets: ["SkipPostHog"]),
     ],
     dependencies: [
         .package(url: "https://source.skip.tools/skip.git", from: "1.0.0"),

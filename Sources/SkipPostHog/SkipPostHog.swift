@@ -1,3 +1,4 @@
+// Copyright 2023–2025 Skip
 // SPDX-License-Identifier: LGPL-3.0-only WITH LGPL-3.0-linking-exception
 #if !SKIP_BRIDGE
 import Foundation
@@ -6,6 +7,9 @@ import Foundation
 import com.posthog.PostHog
 import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
+import com.posthog.FeatureFlagResult
+import com.posthog.PersonProfiles
+import com.posthog.PostHogOnFeatureFlags
 #else
 import PostHog
 #endif
@@ -208,6 +212,178 @@ public class PostHogSDK {
         PostHog.PostHogSDK.shared.capture(event, distinctId: distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: groups, timestamp: timestamp)
         #else
         PostHog.capture(event: event, distinctId: distinctId, properties: convertAnyMap(properties), userProperties: convertAnyMap(userProperties), userPropertiesSetOnce: convertAnyMap(userPropertiesSetOnce), groups: convertStringMap(groups), timestamp: timestamp?.kotlin())
+        #endif
+    }
+
+    // MARK: Screen Tracking
+
+    /// Track a screen view event.
+    public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.screen(screenTitle, properties: properties)
+        #else
+        PostHog.screen(screenTitle: screenTitle, properties: convertAnyMap(properties))
+        #endif
+    }
+
+    // MARK: Debug
+
+    /// Enable or disable debug logging.
+    public func debug(_ enabled: Bool = true) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.debug(enabled)
+        #else
+        PostHog.debug(enable: enabled)
+        #endif
+    }
+
+    // MARK: Person Properties
+
+    /// Set person properties on the current user without creating an identify event.
+    public func setPersonProperties(userPropertiesToSet: [String: Any]? = nil, userPropertiesToSetOnce: [String: Any]? = nil) {
+        #if SKIP
+        PostHog.setPersonProperties(userPropertiesToSet: convertAnyMap(userPropertiesToSet), userPropertiesToSetOnce: convertAnyMap(userPropertiesToSetOnce))
+        #else
+        // Equivalent to setPersonProperties: re-identify the current user with the given properties
+        let distinctId = PostHog.PostHogSDK.shared.getDistinctId()
+        PostHog.PostHogSDK.shared.identify(distinctId, userProperties: userPropertiesToSet, userPropertiesSetOnce: userPropertiesToSetOnce)
+        #endif
+    }
+
+    // MARK: Feature Flag Overloads
+
+    /// Reload feature flags from the server with a completion callback.
+    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.reloadFeatureFlags(callback)
+        #else
+        PostHog.reloadFeatureFlags(onFeatureFlags: PostHogOnFeatureFlags { callback() })
+        #endif
+    }
+
+    /// Check if a feature flag is enabled, optionally controlling whether a `$feature_flag_called` event is sent.
+    public func isFeatureEnabled(_ featureFlag: String, sendFeatureFlagEvent: Bool) -> Bool {
+        #if SKIP
+        PostHog.isFeatureEnabled(key: featureFlag, sendFeatureFlagEvent: sendFeatureFlagEvent)
+        #else
+        // The sendFeatureFlagEvent overload may not be available in all iOS SDK versions
+        PostHog.PostHogSDK.shared.isFeatureEnabled(featureFlag)
+        #endif
+    }
+
+    /// Get the value of a feature flag, optionally controlling whether a `$feature_flag_called` event is sent.
+    public func getFeatureFlag(_ featureFlag: String, sendFeatureFlagEvent: Bool) -> Any? {
+        #if SKIP
+        PostHog.getFeatureFlag(key: featureFlag, sendFeatureFlagEvent: sendFeatureFlagEvent)
+        #else
+        // The sendFeatureFlagEvent overload may not be available in all iOS SDK versions
+        PostHog.PostHogSDK.shared.getFeatureFlag(featureFlag)
+        #endif
+    }
+
+    /// Get a structured feature flag result including enabled state, variant, and payload.
+    public func getFeatureFlagResult(_ featureFlag: String) -> PostHogFeatureFlagResult? {
+        #if SKIP
+        guard let result = PostHog.getFeatureFlagResult(key: featureFlag) else { return nil }
+        return PostHogFeatureFlagResult(result)
+        #else
+        let flagValue = PostHog.PostHogSDK.shared.getFeatureFlag(featureFlag)
+        guard flagValue != nil else { return nil }
+        let enabled = PostHog.PostHogSDK.shared.isFeatureEnabled(featureFlag)
+        let variant = flagValue as? String
+        let payload = PostHog.PostHogSDK.shared.getFeatureFlagPayload(featureFlag)
+        return PostHogFeatureFlagResult(key: featureFlag, enabled: enabled, variant: variant, payload: payload)
+        #endif
+    }
+
+    /// Get a structured feature flag result, optionally controlling whether a `$feature_flag_called` event is sent.
+    public func getFeatureFlagResult(_ featureFlag: String, sendFeatureFlagEvent: Bool) -> PostHogFeatureFlagResult? {
+        #if SKIP
+        guard let result = PostHog.getFeatureFlagResult(key: featureFlag, sendFeatureFlagEvent: sendFeatureFlagEvent) else { return nil }
+        return PostHogFeatureFlagResult(result)
+        #else
+        // Fallback: sendFeatureFlagEvent not available on all iOS SDK versions
+        return getFeatureFlagResult(featureFlag)
+        #endif
+    }
+
+    // MARK: Person Properties for Flags
+
+    /// Set person properties used for local feature flag evaluation.
+    public func setPersonPropertiesForFlags(_ properties: [String: Any], reloadFeatureFlags: Bool = true) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.setPersonPropertiesForFlags(properties, reloadFeatureFlags: reloadFeatureFlags)
+        #else
+        PostHog.setPersonPropertiesForFlags(userProperties: convertAnyMap(properties)!, reloadFeatureFlags: reloadFeatureFlags)
+        #endif
+    }
+
+    /// Reset person properties used for local feature flag evaluation.
+    public func resetPersonPropertiesForFlags(reloadFeatureFlags: Bool = true) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.resetPersonPropertiesForFlags(reloadFeatureFlags: reloadFeatureFlags)
+        #else
+        PostHog.resetPersonPropertiesForFlags(reloadFeatureFlags: reloadFeatureFlags)
+        #endif
+    }
+
+    // MARK: Group Properties for Flags
+
+    /// Set group properties used for local feature flag evaluation.
+    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool = true) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.setGroupPropertiesForFlags(groupType, properties: properties, reloadFeatureFlags: reloadFeatureFlags)
+        #else
+        PostHog.setGroupPropertiesForFlags(type: groupType, groupProperties: convertAnyMap(properties)!, reloadFeatureFlags: reloadFeatureFlags)
+        #endif
+    }
+
+    /// Reset all group properties used for local feature flag evaluation.
+    public func resetGroupPropertiesForFlags(reloadFeatureFlags: Bool = true) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.resetGroupPropertiesForFlags(reloadFeatureFlags: reloadFeatureFlags)
+        #else
+        PostHog.resetGroupPropertiesForFlags(reloadFeatureFlags: reloadFeatureFlags)
+        #endif
+    }
+
+    /// Reset group properties for a specific group type used for local feature flag evaluation.
+    public func resetGroupPropertiesForFlags(_ groupType: String, reloadFeatureFlags: Bool = true) {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.resetGroupPropertiesForFlags(groupType, reloadFeatureFlags: reloadFeatureFlags)
+        #else
+        PostHog.resetGroupPropertiesForFlags(type: groupType, reloadFeatureFlags: reloadFeatureFlags)
+        #endif
+    }
+
+    // MARK: Session Replay
+
+    /// Whether session replay is currently recording.
+    public func isSessionReplayActive() -> Bool {
+        #if SKIP
+        PostHog.isSessionReplayActive()
+        #elseif os(iOS)
+        PostHog.PostHogSDK.shared.isSessionReplayActive()
+        #else
+        false
+        #endif
+    }
+
+    /// Start session recording. If `resumeCurrent` is true, the current session is resumed rather than starting a new one.
+    public func startSessionRecording(resumeCurrent: Bool = false) {
+        #if SKIP
+        PostHog.startSessionReplay(resumeCurrent: resumeCurrent)
+        #elseif os(iOS)
+        PostHog.PostHogSDK.shared.startSessionRecording(resumeCurrent: resumeCurrent)
+        #endif
+    }
+
+    /// Stop session recording.
+    public func stopSessionRecording() {
+        #if SKIP
+        PostHog.stopSessionReplay()
+        #elseif os(iOS)
+        PostHog.PostHogSDK.shared.stopSessionRecording()
         #endif
     }
 
@@ -526,6 +702,144 @@ public class PostHogConfig {
         }
     }
 
+    public var personProfiles: PostHogPersonProfiles {
+        get {
+            #if !SKIP
+            switch self.platformValue.personProfiles {
+            case .never: return .never
+            case .always: return .always
+            case .identifiedOnly: return .identifiedOnly
+            @unknown default: return .identifiedOnly
+            }
+            #else
+            let p = self.platformValue.personProfiles
+            if p == PersonProfiles.NEVER { return .never }
+            if p == PersonProfiles.ALWAYS { return .always }
+            return .identifiedOnly
+            #endif
+        }
+
+        set {
+            #if !SKIP
+            switch newValue {
+            case .never: self.platformValue.personProfiles = .never
+            case .always: self.platformValue.personProfiles = .always
+            case .identifiedOnly: self.platformValue.personProfiles = .identifiedOnly
+            }
+            #else
+            switch newValue {
+            case .never: self.platformValue.personProfiles = PersonProfiles.NEVER
+            case .always: self.platformValue.personProfiles = PersonProfiles.ALWAYS
+            case .identifiedOnly: self.platformValue.personProfiles = PersonProfiles.IDENTIFIED_ONLY
+            }
+            #endif
+        }
+    }
+
+    public var sessionReplay: Bool {
+        get {
+            #if SKIP
+            self.platformValue.sessionReplay
+            #elseif os(iOS)
+            self.platformValue.sessionReplay
+            #else
+            false
+            #endif
+        }
+
+        set {
+            #if SKIP
+            self.platformValue.sessionReplay = newValue
+            #elseif os(iOS)
+            self.platformValue.sessionReplay = newValue
+            #endif
+        }
+    }
+
+    public var setDefaultPersonProperties: Bool {
+        get {
+            #if !SKIP
+            self.platformValue.setDefaultPersonProperties
+            #else
+            self.platformValue.setDefaultPersonProperties
+            #endif
+        }
+
+        set {
+            #if !SKIP
+            self.platformValue.setDefaultPersonProperties = newValue
+            #else
+            self.platformValue.setDefaultPersonProperties = newValue
+            #endif
+        }
+    }
+
+    public var surveys: Bool {
+        get {
+            #if SKIP
+            self.platformValue.surveys
+            #elseif os(iOS)
+            if #available(iOS 15.0, *) {
+                return self.platformValue.surveys
+            } else {
+                return false
+            }
+            #else
+            false
+            #endif
+        }
+
+        set {
+            #if SKIP
+            self.platformValue.surveys = newValue
+            #elseif os(iOS)
+            if #available(iOS 15.0, *) {
+                self.platformValue.surveys = newValue
+            }
+            #endif
+        }
+    }
+
+}
+
+/// Person profile processing mode.
+///
+/// Controls when PostHog creates person profiles for events.
+public enum PostHogPersonProfiles: Int {
+    /// No person profiles are created for any event.
+    case never = 0
+    /// Person data is processed for all events.
+    case always = 1
+    /// Person profiles are only created on `identify`, `alias`, and `group` calls.
+    case identifiedOnly = 2
+}
+
+/// A structured result from a feature flag evaluation, including enabled state, variant, and payload.
+public class PostHogFeatureFlagResult {
+    /// The feature flag key.
+    public let key: String
+    /// Whether the feature flag is enabled.
+    public let enabled: Bool
+    /// The variant name for multivariate flags, or `nil`.
+    public let variant: String?
+    /// The JSON payload associated with the flag, or `nil`.
+    public let payload: Any?
+
+    init(key: String, enabled: Bool, variant: String?, payload: Any?) {
+        self.key = key
+        self.enabled = enabled
+        self.variant = variant
+        self.payload = payload
+    }
+
+    #if SKIP
+    init(_ result: FeatureFlagResult) {
+        self.key = result.key
+        self.enabled = result.enabled
+        self.variant = result.variant
+        self.payload = result.payload
+    }
+    #endif
 }
 
 #if SKIP
