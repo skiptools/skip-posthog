@@ -253,4 +253,46 @@ final class SkipPostHogTests: XCTestCase {
             let _: Int = PostHogPersonProfiles.identifiedOnly.rawValue
         }
     }
+
+    func testPostHogSDKAnonymousIdAPI() throws {
+        if false {
+            let sdk = PostHogSDK.shared
+            let _: String = sdk.getAnonymousId()
+        }
+    }
+
+    func testPostHogSDKSessionActiveAPI() throws {
+        if false {
+            let sdk = PostHogSDK.shared
+            let _: Bool = sdk.isSessionActive()
+        }
+    }
+
+    func testPostHogSDKCaptureExceptionAPI() throws {
+        if false {
+            let sdk = PostHogSDK.shared
+            sdk.captureException(PostHogTestError())
+            sdk.captureException(PostHogTestError(), properties: ["context": "test"])
+        }
+    }
+
+    func testPostHogSDKFeatureTrackingAPI() throws {
+        if false {
+            let sdk = PostHogSDK.shared
+            sdk.captureFeatureView(flag: "new-dashboard")
+            sdk.captureFeatureView(flag: "new-dashboard", flagVariant: "control")
+            sdk.captureFeatureInteraction(flag: "new-dashboard")
+            sdk.captureFeatureInteraction(flag: "new-dashboard", flagVariant: "test")
+        }
+    }
+
+    func testPostHogConfigElementInteractions() throws {
+        if false {
+            let config = PostHogConfig(apiKey: "test-key")
+            config.captureElementInteractions = true
+            let _: Bool = config.captureElementInteractions
+        }
+    }
 }
+
+struct PostHogTestError: Error { }

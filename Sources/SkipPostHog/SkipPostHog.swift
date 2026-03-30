@@ -56,13 +56,14 @@ public class PostHogSDK {
         #endif
     }
 
-//    public func getAnonymousId() -> String {
-//        #if !SKIP
-//        PostHog.PostHogSDK.shared.getAnonymousId()
-//        #else
-//        PostHog.anonymousId() // “Unresolved reference 'anonymousId'.” ?
-//        #endif
-//    }
+    /// Returns the anonymous ID for the current user.
+    public func getAnonymousId() -> String {
+        #if !SKIP
+        PostHog.PostHogSDK.shared.getAnonymousId()
+        #else
+        PostHog.distinctId() // Android SDK does not expose a separate anonymous ID; distinct ID is used
+        #endif
+    }
 
     public func getSessionId() -> String? {
         #if !SKIP
@@ -358,6 +359,67 @@ public class PostHogSDK {
 
     // MARK: Session Replay
 
+    /// Whether a session is currently active.
+    public func isSessionActive() -> Bool {
+        #if SKIP
+        PostHog.isSessionActive()
+        #elseif os(iOS)
+        // iOS SDK doesn't expose isSessionActive directly; check if session ID exists
+        PostHog.PostHogSDK.shared.getSessionId() != nil
+        #else
+        false
+        #endif
+    }
+
+    // MARK: Capture Exception
+
+    /// Capture an exception/error as a PostHog event.
+    ///
+    /// On Android, the error is wrapped in a `RuntimeException`.
+    /// On iOS, this method is not available (the PostHog iOS SDK's `captureException` is marked `@_spi`).
+    /// Use `capture("$exception", properties: ...)` as an alternative on iOS.
+    public func captureException(_ error: Error, properties: [String: Any]? = nil) {
+        #if SKIP
+        // SKIP INSERT: com.posthog.PostHog.captureException(java.lang.RuntimeException(error.description), convertAnyMap(properties) ?: emptyMap())
+        #else
+        // captureException is @_spi on iOS; use capture instead
+        var props = properties ?? [:]
+        props["$exception_type"] = "\(type(of: error))"
+        props["$exception_message"] = error.localizedDescription
+        PostHog.PostHogSDK.shared.capture("$exception", properties: props)
+        #endif
+    }
+
+    // MARK: Feature Flag Interaction Tracking
+
+    /// Track when a user views a feature controlled by a feature flag.
+    ///
+    /// - Parameters:
+    ///   - flag: The feature flag key.
+    ///   - flagVariant: The variant of the flag, if applicable.
+    public func captureFeatureView(flag: String, flagVariant: String? = nil) {
+        #if SKIP
+        PostHog.captureFeatureView(flag: flag, flagVariant: flagVariant)
+        #else
+        PostHog.PostHogSDK.shared.captureFeatureView(flag: flag, flagVariant: flagVariant)
+        #endif
+    }
+
+    /// Track when a user interacts with a feature controlled by a feature flag.
+    ///
+    /// - Parameters:
+    ///   - flag: The feature flag key.
+    ///   - flagVariant: The variant of the flag, if applicable.
+    public func captureFeatureInteraction(flag: String, flagVariant: String? = nil) {
+        #if SKIP
+        PostHog.captureFeatureInteraction(flag: flag, flagVariant: flagVariant)
+        #else
+        PostHog.PostHogSDK.shared.captureFeatureInteraction(flag: flag, flagVariant: flagVariant)
+        #endif
+    }
+
+    // MARK: Session Replay
+
     /// Whether session replay is currently recording.
     public func isSessionReplayActive() -> Bool {
         #if SKIP
@@ -630,23 +692,22 @@ public class PostHogConfig {
         }
     }
 
-//    public var captureElementInteractions: Bool {
-//        get {
-//            #if !SKIP
-//            self.platformValue.captureElementInteractions
-//            #else
-//            self.platformValue.captureElementInteractions
-//            #endif
-//        }
-//
-//        set {
-//            #if !SKIP
-//            self.platformValue.captureElementInteractions = newValue
-//            #else
-//            self.platformValue.captureElementInteractions = newValue
-//            #endif
-//        }
-//    }
+    /// Whether to capture element interactions (autocapture). iOS only.
+    public var captureElementInteractions: Bool {
+        get {
+            #if os(iOS) && !SKIP
+            self.platformValue.captureElementInteractions
+            #else
+            false
+            #endif
+        }
+
+        set {
+            #if os(iOS) && !SKIP
+            self.platformValue.captureElementInteractions = newValue
+            #endif
+        }
+    }
 
     public var debug: Bool {
         get {
