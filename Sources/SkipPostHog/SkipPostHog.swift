@@ -763,6 +763,35 @@ public class PostHogConfig {
         }
     }
 
+    /// A closure that derives the anonymous ID for the current user. It receives
+    /// a freshly generated `UUID` and returns the `UUID` PostHog should use as
+    /// the anonymous identifier.
+    ///
+    /// Use this to seed the anonymous ID from a durable client identifier so the
+    /// same device keeps a stable distinct ID across reinstalls. Mirrors the iOS
+    /// `PostHogConfig.getAnonymousId` and Android `PostHogConfig.getAnonymousId`.
+    ///
+    /// On Android the underlying closure operates on `java.util.UUID`; the
+    /// `#if SKIP` branch bridges that to Foundation `UUID` via `KotlinConverting`.
+    public var getAnonymousId: (UUID) -> UUID {
+        get {
+            #if !SKIP
+            self.platformValue.getAnonymousId
+            #else
+            let platformClosure = self.platformValue.getAnonymousId
+            return { uuid in UUID(platformValue: platformClosure(uuid.kotlin())) }
+            #endif
+        }
+
+        set {
+            #if !SKIP
+            self.platformValue.getAnonymousId = newValue
+            #else
+            self.platformValue.getAnonymousId = { uuid in newValue(UUID(platformValue: uuid)).kotlin() }
+            #endif
+        }
+    }
+
     public var personProfiles: PostHogPersonProfiles {
         get {
             #if !SKIP
