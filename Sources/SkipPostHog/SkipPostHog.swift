@@ -860,6 +860,52 @@ public class PostHogConfig {
         }
     }
 
+    /// Properties merged into every outgoing event that does not already carry
+    /// the key. Existing values are never overwritten.
+    ///
+    /// **Must be set before `PostHogSDK.shared.setup(_:)`.** This is what makes
+    /// it different from `register(_:)`: `register` can only run *after* setup,
+    /// while a handful of autocapture events (`Application Installed` most
+    /// notably) are emitted from *inside* setup — and on a fresh install the
+    /// persisted property store is empty too, so those events carry none of the
+    /// app's cross-event properties at all. This hook runs on every event just
+    /// before it is cached or sent, including those, so an app can guarantee
+    /// that e.g. its `platform` property is on 100 % of events instead of
+    /// 99-point-something.
+    ///
+    /// Implemented on top of the SDK-provided pre-send hook on both platforms
+    /// (iOS `PostHogConfig.setBeforeSend`, Android
+    /// `PostHogConfig.addBeforeSend`) — no SDK internals involved.
+    ///
+    /// ```swift
+    /// let config = PostHogConfig(apiKey: key)
+    /// config.setDefaultEventProperties(["platform": "android", "app_version": version])
+    /// PostHogSDK.shared.setup(config)
+    /// ```
+    public func setDefaultEventProperties(_ properties: [String: Any]) {
+        #if !SKIP
+        platformValue.setBeforeSend({ event in
+            for (key, value) in properties where event.properties[key] == nil {
+                event.properties[key] = value
+            }
+            return event
+        })
+        #else
+        // Kotlin's `PostHogEvent.properties` is an immutable `Map`, so the hook
+        // returns a copy carrying the merged map rather than mutating in place.
+        let defaults = properties
+        platformValue.addBeforeSend(com.posthog.PostHogBeforeSend { event in
+            let merged = java.util.LinkedHashMap<String, Any>(event.properties)
+            for (key, value) in defaults {
+                if !merged.containsKey(key) {
+                    merged.put(key, value)
+                }
+            }
+            return event.copy(properties: merged)
+        })
+        #endif
+    }
+
 }
 
 /// Person profile processing mode.
